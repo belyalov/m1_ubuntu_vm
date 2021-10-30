@@ -1,0 +1,7 @@
+configs/user
+configs/commands
+*-generic
+vmlinuz*
+root.tar.gz
+*.sqfs
+*.img

@@ -1,0 +1,23 @@
+#!/bin/bash -e
+
+KERNEL=$(ls vmlinuz-*)
+INITRD=$(ls initrd-*)
+IMAGE=$(ls *cloudimg-arm64.img)
+
+echo ""
+echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+echo ""
+echo "Once boot completed you'll be able to ssh into machine by:"
+echo "$ ssh 192.168.64.10"
+echo ""
+echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+echo ""
+
+vftool \
+-k ${KERNEL} \
+-i ${INITRD} \
+-d ${IMAGE} \
+-t 0 \
+-a "console=hvc0 root=/dev/vda" \
+-p 6 \
+-m 13000

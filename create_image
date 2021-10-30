@@ -1,0 +1,146 @@
+#!/bin/bash -e
+
+# HOW TO FIND IMAGES FOR NEW VERSION #
+# Goto https://cloud-images.ubuntu.com/releases/
+# Select whatever release you want to make image from
+# Under release's folder goto "release" folder
+# - Find fs root: *server-cloudimg-arm64.tar.gz
+# - Find kernel and initrd under "unpacked" folder:
+# -  - kernel: *server-cloudimg-arm64-vmlinuz-generic
+# -  - initrd: *server-cloudimg-arm64-initrd-generic
+
+# Ubuntu Root is under "release" folder, but kernel and initrd could be found under "unpacked" folder
+ROOT_URL="https://cloud-images.ubuntu.com/releases/hirsute/release/ubuntu-21.04-server-cloudimg-arm64.tar.gz"
+KERNEL_URL="https://cloud-images.ubuntu.com/releases/hirsute/release/unpacked/ubuntu-21.04-server-cloudimg-arm64-vmlinuz-generic"
+INITRD_URL="https://cloud-images.ubuntu.com/releases/hirsute/release/unpacked/ubuntu-21.04-server-cloudimg-arm64-initrd-generic"
+
+KERNEL="vmlinuz-generic"
+INITRD="initrd-generic"
+
+CONFIGS_IMAGE="configs-image.sqfs"
+
+USERID=$(id -u)
+
+echo ""
+echo "Creating configuration read only image..."
+# Install squashfs tools if not installed yet
+if ! command -v mksquashfs &> /dev/null
+then
+    echo "mksquashfs is not installed, installing it using brew..."
+    brew install squashfs
+fi
+
+#
+# Prepare configuration files
+#
+USER_CONFIG="configs/user/${USER}"
+FILES_TO_COPY=(
+    ~/.bashrc
+    ~/.profile
+    ~/.gitconfig
+    ~/.bash_history
+    ~/.zprofile
+    ~/.zsh_history
+)
+mkdir -p ${USER_CONFIG}/.ssh
+cp ~/.ssh/id_rsa.pub ${USER_CONFIG}/.ssh/authorized_keys
+for file in "${FILES_TO_COPY[@]}"; do
+    cp ${file} ${USER_CONFIG}/ || true
+done
+# create user / setup network commands
+cat <<EOF > configs/commands
+# resize / mount root
+resize2fs 
+mkdir /mnt
+mount /dev/vda /mnt
+/mnt/sbin/resize2fs /dev/vda
+echo "hvc0" >> /mnt/etc/securetty
+# add user / copy user file
+chroot /mnt useradd ${USER} -m -u ${USERID} -s ${SHELL}
+cp -r /configs/user/${USER} /mnt/home
+chmod 600 /mnt/home/${USER}/.ssh/authorized_keys
+chroot /mnt chown ${USER} -R /home/${USER}
+# generate ssh keys
+chroot /mnt ssh-keygen -A
+# enable passwordless sudo
+echo "${USER}    ALL=(ALL:ALL) NOPASSWD:ALL" >> /mnt/etc/sudoers
+# setup network
+cp /configs/01-static.yaml /mnt/etc/netplan/01-static.yaml
+echo “envoy-dev” >/mnt/etc/hostname
+touch /mnt/etc/cloud/cloud-init.disabled
+# enable/disable services
+chroot /mnt update-rc.d ssh enable
+chroot /mnt update-rc.d plymouth disable
+chroot /mnt update-rc.d plymouth-log disable
+chroot /mnt update-rc.d unattended-upgrades disable
+EOF
+chmod 777 configs/commands
+# Create squash fs
+rm -f ${CONFIGS_IMAGE}
+mksquashfs configs ${CONFIGS_IMAGE} -quiet
+
+
+echo ""
+echo "Downloading linux parts: rootfs, kernel and initrd..."
+curl ${ROOT_URL} -o root.tar.gz
+curl ${KERNEL_URL} -o ${KERNEL}.gz
+curl ${INITRD_URL} -o ${INITRD}
+
+# Kernel is gzip archive, unpack
+echo ""
+echo "Unpacking kernel..."
+rm -f ${KERNEL}
+gzip -d ${KERNEL}.gz
+
+echo ""
+echo "Unpacking rootfs, this will take awhile..."
+# Extract rootfs image from xz archive
+tar xfz root.tar.gz
+rm README
+
+# Find extracted root image
+IMAGE=$(ls *cloudimg-arm64.img)
+echo ""
+echo "Found linux rootfs ${IMAGE}, resizing it to 20Gb"
+
+# Resize it to 20G
+dd if=/dev/zero of=${IMAGE} seek=20000000 obs=1024 count=0
+
+# Start VM in initramfs mode to apply settings
+echo ""
+echo "----------------------------------------------------------------------------------"
+echo ""
+echo "Ready to start your Ubuntu VM in initramfs mode - to apply initial configuration."
+echo ""
+echo "Once booted run this single command to apply configuration:"
+echo "$ mkdir /configs && mount /dev/vdb /configs && /configs/commands && umount /mnt"
+echo ""
+echo "Then simply press CTRL+C to continue"
+echo ""
+echo "----------------------------------------------------------------------------------"
+echo ""
+read -p "Press any key to run VM for configuration... " -n1
+vftool \
+    -k ${KERNEL} \
+    -i ${INITRD} \
+    -d ${IMAGE} \
+    -d ${CONFIGS_IMAGE} \
+    -t 0 \
+    -m 2048
+
+echo ""
+echo "Your Linux VM is ready to use, to start it simply run:"
+echo "$ ./run"
+echo "It will take around 10 seconds to boot up, then you'll be able to SSH into by"
+echo "$ ssh 192.168.64.10"
+echo ""
+
+# Add SSH agent forwarding for just created VM
+if ! grep -q "Host 192.168.64.10" ~/.ssh/config; then
+    echo "Adding SSH agent forwarding to VM..."
+    cat <<EOF >> zzz
+
+Host 192.168.64.10
+    ForwardAgent yes
+EOF
+fi
