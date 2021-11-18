@@ -19,5 +19,5 @@ vftool \
 -d ${IMAGE} \
 -t 0 \
 -a "console=hvc0 root=/dev/vda" \
--p 6 \
--m 13000
+-p 10 \
+-m 14000

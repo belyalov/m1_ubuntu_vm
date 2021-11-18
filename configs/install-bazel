@@ -1,0 +1,19 @@
+#!/bin/bash -e
+
+if [ "$EUID" -ne 0 ]
+  then echo "Please run command through sudo or root"
+  exit
+fi
+
+if [ $# -eq 0 ]; then
+    echo "Usage: install-bazel <version>"
+    exit 1
+fi
+
+VERSION=$1
+FN="bazel-${VERSION}-linux-arm64"
+URL="https://github.com/bazelbuild/bazel/releases/download/${VERSION}/${FN}"
+
+wget $URL -O /usr/local/bin/${FN}
+chmod 777 /usr/local/bin/${FN}
+ln -sf /usr/local/bin/${FN} /usr/local/bin/bazel

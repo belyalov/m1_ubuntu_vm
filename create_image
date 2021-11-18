@@ -3,8 +3,8 @@
 # HOW TO FIND IMAGES FOR NEW VERSION #
 # Goto https://cloud-images.ubuntu.com/releases/
 # Select whatever release you want to make image from
-# Under release's folder goto "release" folder
-# - Find fs root: *server-cloudimg-arm64.tar.gz
+# Then under release's folder goto "release" folder
+# - Find rootfs: *server-cloudimg-arm64.tar.gz
 # - Find kernel and initrd under "unpacked" folder:
 # -  - kernel: *server-cloudimg-arm64-vmlinuz-generic
 # -  - initrd: *server-cloudimg-arm64-initrd-generic
@@ -50,7 +50,6 @@ done
 # create user / setup network commands
 cat <<EOF > configs/commands
 # resize / mount root
-resize2fs 
 mkdir /mnt
 mount /dev/vda /mnt
 /mnt/sbin/resize2fs /dev/vda
@@ -68,17 +67,19 @@ echo "${USER}    ALL=(ALL:ALL) NOPASSWD:ALL" >> /mnt/etc/sudoers
 cp /configs/01-static.yaml /mnt/etc/netplan/01-static.yaml
 echo “envoy-dev” >/mnt/etc/hostname
 touch /mnt/etc/cloud/cloud-init.disabled
-# enable/disable services
-chroot /mnt update-rc.d ssh enable
-chroot /mnt update-rc.d plymouth disable
-chroot /mnt update-rc.d plymouth-log disable
-chroot /mnt update-rc.d unattended-upgrades disable
+# apt-get to force yes
+echo 'APT::Get::Assume-Yes "true";' >> /mnt/etc/apt/apt.conf.d/90force-yes;
+# disable some services
+rm -f /mnt/etc/rc4.d/K01plymouth* /mnt/etc/rc5.d/K01plymouth* /mnt/etc/rcS.d/K01plymouth* /mnt/etc/rc2.d/K01plymouth*
+rm -f /mnt/etc/rc3.d/K01plymouth* /mnt/etc/rc6.d/K01plymouth* /mnt/etc/rc0.d/K01plymouth*
+# others
+cp /configs/install-bazel /mnt/usr/local/bin
+chmod 777 /mnt/usr/local/bin/install-bazel
 EOF
 chmod 777 configs/commands
 # Create squash fs
 rm -f ${CONFIGS_IMAGE}
 mksquashfs configs ${CONFIGS_IMAGE} -quiet
-
 
 echo ""
 echo "Downloading linux parts: rootfs, kernel and initrd..."
@@ -96,15 +97,26 @@ echo ""
 echo "Unpacking rootfs, this will take awhile..."
 # Extract rootfs image from xz archive
 tar xfz root.tar.gz
+rm root.tar.gz
 rm README
 
 # Find extracted root image
 IMAGE=$(ls *cloudimg-arm64.img)
 echo ""
-echo "Found linux rootfs ${IMAGE}, resizing it to 20Gb"
+echo "Found linux rootfs ${IMAGE}, resizing it to 30Gb"
 
-# Resize it to 20G
-dd if=/dev/zero of=${IMAGE} seek=20000000 obs=1024 count=0
+# Resize it to 30G
+dd if=/dev/zero of=${IMAGE} seek=30000000 obs=1024 count=0
+
+# Add SSH agent forwarding for just created VM
+if ! grep -q "Host 192.168.64.10" ~/.ssh/config; then
+    echo "Adding SSH agent forwarding to VM..."
+    cat <<EOF >> ~/.ssh/config
+
+Host 192.168.64.10
+    ForwardAgent yes
+EOF
+fi
 
 # Start VM in initramfs mode to apply settings
 echo ""
@@ -115,11 +127,12 @@ echo ""
 echo "Once booted run this single command to apply configuration:"
 echo "$ mkdir /configs && mount /dev/vdb /configs && /configs/commands && umount /mnt"
 echo ""
-echo "Then simply press CTRL+C to continue"
+echo "Press CTRL+C to exit VM once executed and you're good to go!"
 echo ""
 echo "----------------------------------------------------------------------------------"
 echo ""
 read -p "Press any key to run VM for configuration... " -n1
+
 vftool \
     -k ${KERNEL} \
     -i ${INITRD} \
@@ -127,20 +140,3 @@ vftool \
     -d ${CONFIGS_IMAGE} \
     -t 0 \
     -m 2048
-
-echo ""
-echo "Your Linux VM is ready to use, to start it simply run:"
-echo "$ ./run"
-echo "It will take around 10 seconds to boot up, then you'll be able to SSH into by"
-echo "$ ssh 192.168.64.10"
-echo ""
-
-# Add SSH agent forwarding for just created VM
-if ! grep -q "Host 192.168.64.10" ~/.ssh/config; then
-    echo "Adding SSH agent forwarding to VM..."
-    cat <<EOF >> zzz
-
-Host 192.168.64.10
-    ForwardAgent yes
-EOF
-fi
