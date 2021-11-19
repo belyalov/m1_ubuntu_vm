@@ -10,9 +10,9 @@
 # -  - initrd: *server-cloudimg-arm64-initrd-generic
 
 # Ubuntu Root is under "release" folder, but kernel and initrd could be found under "unpacked" folder
-ROOT_URL="https://cloud-images.ubuntu.com/releases/hirsute/release/ubuntu-21.04-server-cloudimg-arm64.tar.gz"
-KERNEL_URL="https://cloud-images.ubuntu.com/releases/hirsute/release/unpacked/ubuntu-21.04-server-cloudimg-arm64-vmlinuz-generic"
-INITRD_URL="https://cloud-images.ubuntu.com/releases/hirsute/release/unpacked/ubuntu-21.04-server-cloudimg-arm64-initrd-generic"
+ROOT_URL="https://cloud-images.ubuntu.com/releases/focal/release/ubuntu-20.04-server-cloudimg-arm64.tar.gz"
+KERNEL_URL="https://cloud-images.ubuntu.com/releases/focal/release/unpacked/ubuntu-20.04-server-cloudimg-arm64-vmlinuz-generic"
+INITRD_URL="https://cloud-images.ubuntu.com/releases/focal/release/unpacked/ubuntu-20.04-server-cloudimg-arm64-initrd-generic"
 
 KERNEL="vmlinuz-generic"
 INITRD="initrd-generic"
