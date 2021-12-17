@@ -3,7 +3,16 @@
 KERNEL=$(ls vmlinuz-*)
 INITRD=$(ls initrd-*)
 IMAGE=$(ls *cloudimg-arm64.img)
+MB=$(( 1024*1024 ))
+GIG=$(( ${MB}*1024 ))
+MEMORY=$(( $(sysctl hw.memsize | cut -d " " -f 2) / 100 * 80 ))
+NCPU=$(sysctl hw.ncpu | cut -d " " -f 2)
 
+echo "Ready to start VM:"
+echo
+echo "CPU: ${NCPU}"
+echo "RAM: $(( ${MEMORY} / ${GIG}))G"
+echo "Disk: $(( $(stat -f%z ${IMAGE}) / ${GIG}))G"
 echo ""
 echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 echo ""
@@ -13,11 +22,13 @@ echo ""
 echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 echo ""
 
+read -p "Press enter to start VM:"
+
 vftool \
 -k ${KERNEL} \
 -i ${INITRD} \
 -d ${IMAGE} \
 -t 0 \
 -a "console=hvc0 root=/dev/vda" \
--p 10 \
--m 14000
+-p ${NCPU} \
+-m $(( ${MEMORY} / ${MB} ))
