@@ -1,8 +1,10 @@
 #!/bin/bash -e
 
-KERNEL=$(ls vmlinuz-*)
-INITRD=$(ls initrd-*)
-IMAGE=$(ls *cloudimg-arm64.img)
+IMAGE_DIR="images"
+
+KERNEL=$(ls ${IMAGE_DIR}/vmlinuz-*)
+INITRD=$(ls ${IMAGE_DIR}/initrd-*)
+IMAGE=$(ls ${IMAGE_DIR}/*cloudimg-arm64.img)
 MB=$(( 1024*1024 ))
 GIG=$(( ${MB}*1024 ))
 MEMORY=$(( $(sysctl hw.memsize | cut -d " " -f 2) / 100 * 80 ))

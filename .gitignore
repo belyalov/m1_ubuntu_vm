@@ -1,5 +1,6 @@
 configs/user
 configs/commands
+images
 *-generic
 vmlinuz*
 root.tar.gz

@@ -14,12 +14,16 @@ ROOT_URL="https://cloud-images.ubuntu.com/releases/focal/release/ubuntu-20.04-se
 KERNEL_URL="https://cloud-images.ubuntu.com/releases/focal/release/unpacked/ubuntu-20.04-server-cloudimg-arm64-vmlinuz-generic"
 INITRD_URL="https://cloud-images.ubuntu.com/releases/focal/release/unpacked/ubuntu-20.04-server-cloudimg-arm64-initrd-generic"
 
-KERNEL="vmlinuz-generic"
-INITRD="initrd-generic"
+IMAGE_DIR="images"
 
-CONFIGS_IMAGE="configs-image.sqfs"
+KERNEL="${IMAGE_DIR}/vmlinuz-generic"
+INITRD="${IMAGE_DIR}/initrd-generic"
+
+CONFIGS_IMAGE="${IMAGE_DIR}/configs-image.sqfs"
 
 USERID=$(id -u)
+
+mkdir -p ${IMAGE_DIR}
 
 echo ""
 echo "Creating configuration read only image..."
@@ -83,7 +87,7 @@ mksquashfs configs ${CONFIGS_IMAGE} -quiet
 
 echo ""
 echo "Downloading linux parts: rootfs, kernel and initrd..."
-curl ${ROOT_URL} -o root.tar.gz
+curl ${ROOT_URL} -o ${IMAGE_DIR}/root.tar.gz
 curl ${KERNEL_URL} -o ${KERNEL}.gz
 curl ${INITRD_URL} -o ${INITRD}
 
@@ -96,12 +100,11 @@ gzip -d ${KERNEL}.gz
 echo ""
 echo "Unpacking rootfs, this will take awhile..."
 # Extract rootfs image from xz archive
-tar xfz root.tar.gz
-rm root.tar.gz
-rm README
+tar xfz ${IMAGE_DIR}/root.tar.gz -C ${IMAGE_DIR}
+rm ${IMAGE_DIR}/root.tar.gz
 
 # Find extracted root image
-IMAGE=$(ls *cloudimg-arm64.img)
+IMAGE=$(ls ${IMAGE_DIR}/*cloudimg-arm64.img)
 echo ""
 echo "Found linux rootfs ${IMAGE}, resizing it to 30Gb"
 
